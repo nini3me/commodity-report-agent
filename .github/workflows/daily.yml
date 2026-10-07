@@ -1,0 +1,58 @@
+name: 大宗商品行情日报
+
+on:
+  schedule:
+    # cron 使用 UTC。北京时间 08:30 = UTC 00:30
+    # （:30 而非整点，避开 GitHub 调度高峰导致的延迟或丢任务）
+    - cron: "30 0 * * *"
+  workflow_dispatch:        # 支持在网页上手动补跑
+
+permissions:
+  contents: write           # 回写状态快照需要写权限
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: 安装依赖
+        run: pip install -r requirements.txt
+
+      - name: 生成并推送日报
+        env:
+          PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}   # 必填：发给自己
+          PUSHPLUS_TOPIC: ${{ secrets.PUSHPLUS_TOPIC }}   # 选填：群组编码，同时发给指定好友
+        run: python main.py
+
+      - name: 上传日报存档
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-report-${{ github.run_number }}
+          path: output/
+          if-no-files-found: warn
+          retention-days: 30
+
+      # 回写状态快照。
+      # 一举两得：① 换月检测需要跨天比对主力合约；
+      #           ② 每天产生一次提交，避免公开仓库因 60 天无活动而停用定时任务。
+      - name: 回写状态快照
+        if: always()
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state/
+          git diff --staged --quiet || git commit -m "chore: 更新行情快照 [skip ci]"
+          git pull --rebase --autostash origin "${GITHUB_REF_NAME}" || true
+          git push || true

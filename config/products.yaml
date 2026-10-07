@@ -1,0 +1,112 @@
+# ============================================================
+# 品种配置 —— 想增删品种，只改这个文件，不用动代码
+# ============================================================
+
+runtime:
+  # 报告时区（固定北京时间）
+  timezone_offset: 8
+  # 手动补跑时，是否把「今天」也算作可用交易日（默认 false，因为 8:30 运行时不取当天）
+  include_today: false
+  # 判定内盘主力合约的依据：open_interest(持仓量) / volume(成交量)
+  main_contract_by: open_interest
+  # 主连日线出现超过该幅度的跳变时，附加「疑似换月」提醒（百分比）
+  rollover_jump_threshold: 3.0
+  # 状态快照文件（用于跨天比对主力合约）
+  state_file: state/snapshot.json
+
+# ------------------------------------------------------------
+# 外盘：优先 yfinance，失败自动回退新浪 hf_ 实时接口
+# ------------------------------------------------------------
+overseas:
+  - id: brent
+    name: 布伦特原油
+    code: BZ=F
+    sina: hf_OIL
+    unit: 美元/桶
+    decimals: 2
+
+  - id: wti
+    name: WTI 原油
+    code: CL=F
+    sina: hf_CL
+    unit: 美元/桶
+    decimals: 2
+
+  - id: comex_gold
+    name: COMEX 黄金
+    code: GC=F
+    sina: hf_GC
+    unit: 美元/盎司
+    decimals: 2
+
+  - id: comex_silver
+    name: COMEX 白银
+    code: SI=F
+    sina: hf_SI
+    unit: 美元/盎司
+    decimals: 3
+
+# ------------------------------------------------------------
+# 内盘：新浪期货日线接口，取「结算价」
+#   口径：最近交易日结算价  vs  前一交易日结算价
+#   注意：不取 8:30 实时价（国内尚未开盘）
+# ------------------------------------------------------------
+domestic:
+  - id: sc
+    name: 原油
+    label: 原油 SC
+    symbol: SC0                 # 新浪主连代码
+    prefix: sc                  # 具体合约前缀（sc2612）
+    exchange: 上期能源
+    unit: 元/桶
+    decimals: 1
+
+  - id: au
+    name: 沪金
+    label: 沪金 AU
+    symbol: AU0
+    prefix: au
+    exchange: 上期所
+    unit: 元/克
+    decimals: 2
+
+  - id: ag
+    name: 沪银
+    label: 沪银 AG
+    symbol: AG0
+    prefix: ag
+    exchange: 上期所
+    unit: 元/千克
+    decimals: 0
+
+  - id: pr
+    name: 瓶片
+    label: 瓶片 PR
+    symbol: PR0
+    prefix: pr
+    exchange: 郑商所
+    unit: 元/吨
+    decimals: 0
+
+# 主力合约枚举：从当前月开始，向后找多少个月
+domestic_contract_horizon_months: 15
+
+# ------------------------------------------------------------
+# 暗盘：仅在美国市场休市时附加展示
+#   美盘不开时，用仍在交易的现货/电子盘报价作参考
+# ------------------------------------------------------------
+dark_pool:
+  enabled_when: us_closed        # us_closed / china_closed / always / never
+  title: 暗盘行情（美国休市）
+  items:
+    - { name: 伦敦金,     sina: hf_XAU, unit: 美元/盎司, decimals: 2 }
+    - { name: 纽约金,     sina: hf_GC,  unit: 美元/盎司, decimals: 2 }
+    - { name: 伦敦银,     sina: hf_XAG, unit: 美元/盎司, decimals: 3 }
+    - { name: 纽约银,     sina: hf_SI,  unit: 美元/盎司, decimals: 3 }
+    - { name: 布伦特暗油, sina: hf_OIL, unit: 美元/桶,   decimals: 2 }
+    - { name: 美油暗油,   sina: hf_CL,  unit: 美元/桶,   decimals: 2 }
+
+# ------------------------------------------------------------
+# 中国休市时，内盘板块是否仍然展示（false = 按需求文档「取消内盘」）
+# ------------------------------------------------------------
+domestic_show_when_china_closed: false
