@@ -1,13 +1,11 @@
 name: 大宗商品行情日报
 
 on:
-  # ⏸ 定时触发已停用（2026-10-07）。
-  # 恢复方法：删掉下面 5 行的行首 "# "，让 schedule 段重新生效即可。
-  #   schedule:
-  #     # cron 使用 UTC。北京时间 08:30 = UTC 00:30
-  #     # （:30 而非整点，避开 GitHub 调度高峰导致的延迟或丢任务）
-  #     - cron: "30 0 * * *"
-  workflow_dispatch:        # 保留：网页 Actions 页仍可手动运行
+  schedule:
+    # cron 使用 UTC。北京时间 08:30 = UTC 00:30
+    # （:30 而非整点，避开 GitHub 调度高峰导致的延迟或丢任务）
+    - cron: "30 0 * * *"
+  workflow_dispatch:        # 支持在网页上手动补跑
 
 permissions:
   contents: write           # 回写状态快照需要写权限
@@ -34,9 +32,17 @@ jobs:
       - name: 安装依赖
         run: pip install -r requirements.txt
 
+      # 推送通道二选一，配了哪个走哪个；两个都配时优先 ClawBot。
+      #   ClawBot（微信助理）：普通聊天消息，直接进微信会话列表 —— 推荐
+      #   PushPlus：公众号服务号，消息落在「订阅号」里 —— 兜底
+      # 注意 ClawBot 是「回复型协议」，CONTEXT_TOKEN 会过期（实测静置 ≥12 天仍有效，
+      # 已连续使用则通常一直有效）。若某天失败并提示 ret=-2，按日志里的提示刷新它。
       - name: 生成并推送日报
         env:
-          PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}   # 必填：发给自己
+          CLAWBOT_BOT_TOKEN: ${{ secrets.CLAWBOT_BOT_TOKEN }}
+          CLAWBOT_CONTEXT_TOKEN: ${{ secrets.CLAWBOT_CONTEXT_TOKEN }}
+          CLAWBOT_TO_USER: ${{ secrets.CLAWBOT_TO_USER }}
+          PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}   # 选填：兜底通道
           PUSHPLUS_TOPIC: ${{ secrets.PUSHPLUS_TOPIC }}   # 选填：群组编码，同时发给指定好友
         run: python main.py
 

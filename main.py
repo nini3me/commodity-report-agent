@@ -4,17 +4,21 @@
 
 流程：
     读取配置 → 判断中美交易日 → 抓取外盘/内盘/暗盘行情
-    → 计算涨跌 → 检测主力换月 → 生成 Markdown 日报 → PushPlus 推送 → 回写状态快照
+    → 计算涨跌 → 检测主力换月 → 生成 Markdown 日报 → 推送微信 → 回写状态快照
 
 用法：
     python main.py                     # 正常抓取并推送
     python main.py --dry-run           # 只打印，不推送
     python main.py --no-state          # 不写状态快照
     python main.py --source sina       # 强制用新浪抓外盘（跳过 yfinance）
+    python main.py --channel clawbot   # 指定推送通道
 
-环境变量：
-    PUSHPLUS_TOKEN   必填（--dry-run 时可不填）
-    PUSHPLUS_TOPIC   选填，群组编码（用于同时发给指定好友）
+环境变量（推送通道，配哪个走哪个）：
+    —— ClawBot（微信助理，普通聊天消息，不进订阅号；优先）——
+    CLAWBOT_BOT_TOKEN / CLAWBOT_CONTEXT_TOKEN / CLAWBOT_TO_USER
+    —— PushPlus（公众号服务号，会落在订阅号里；兜底）——
+    PUSHPLUS_TOKEN    必填（--dry-run 时可不填）
+    PUSHPLUS_TOPIC    选填，群组编码（用于同时发给指定好友）
 """
 from __future__ import annotations
 
@@ -25,7 +29,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from src import calculator, pushplus, report as report_mod
+from src import calculator, clawbot_push, pushplus, report as report_mod
 from src.holiday import TradingCalendar
 from src.market_data import get_dark_pool, get_domestic, get_main_contracts, get_overseas
 from src.settings import Config
@@ -39,6 +43,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-state", action="store_true", help="不写状态快照")
     parser.add_argument("--template", default="markdown",
                         choices=["markdown", "html", "txt"], help="PushPlus 消息模板")
+    parser.add_argument("--channel", default="auto",
+                        choices=["auto", "clawbot", "pushplus", "both"],
+                        help="推送通道；auto = 配了 ClawBot 走 ClawBot，否则 PushPlus")
     parser.add_argument("--date", metavar="YYYY-MM-DD",
                         help="模拟运行日期（用于测试节假日/换月逻辑，行情仍取实时数据）")
     parser.add_argument("--no-output", action="store_true", help="不写 output/ 日报存档")
@@ -139,21 +146,9 @@ def main() -> int:
     if args.dry_run:
         print("[info] dry-run：跳过推送")
     else:
-        token = config.pushplus_token
-        if not token:
-            print("[error] 未配置 PUSHPLUS_TOKEN，无法推送", file=sys.stderr)
-            return 2
-        result = pushplus.send(
-            token=token,
-            title=doc.title,
-            content=doc.markdown,
-            template=args.template,
-            topic=config.pushplus_topic,
-        )
-        push_ok = result.ok
-        print(f"[{'ok' if result.ok else 'error'}] PushPlus：{result.message}")
-        if not result.ok:
-            print(f"        {result.raw}", file=sys.stderr)
+        push_ok = _dispatch_push(args, config, doc)
+        if not push_ok:
+            return 1
 
     # ---------------- 状态快照 ----------------
     if not args.no_state:
@@ -162,6 +157,60 @@ def main() -> int:
         print(f"[info] 状态已写入 {config.state_path}")
 
     return 0 if (push_ok or args.dry_run) else 1
+
+
+def _dispatch_push(args, config, doc) -> bool:
+    """按 --channel 选择推送通道。
+
+    ClawBot 优先：它是**普通聊天消息**，直接进微信会话列表；
+    PushPlus 走公众号服务号，消息会落在「订阅号」里。
+    auto = 配了 ClawBot 就用 ClawBot，否则回退 PushPlus。
+    """
+    claw_ready = clawbot_push.configured()
+    push_ready = bool(config.pushplus_token)
+
+    order: list[str] = []
+    if args.channel == "auto":
+        order = ["clawbot"] if claw_ready else (["pushplus"] if push_ready else [])
+        if not order:
+            print("[error] 没有可用的推送通道：ClawBot 三件套与 PUSHPLUS_TOKEN 均未配置",
+                  file=sys.stderr)
+            return False
+    elif args.channel == "both":
+        order = ["clawbot", "pushplus"]
+    else:
+        order = [args.channel]
+
+    succeeded = False
+    for name in order:
+        if name == "clawbot":
+            if not claw_ready:
+                print("[error] ClawBot 未配置（缺 CLAWBOT_BOT_TOKEN / "
+                      "CLAWBOT_CONTEXT_TOKEN / CLAWBOT_TO_USER）", file=sys.stderr)
+                continue
+            # 聊天气泡不渲染 Markdown，用纯文本版
+            res = clawbot_push.send("", doc.plain)
+            print(f"[{'ok' if res.ok else 'error'}] ClawBot（微信助理）：{res.message}")
+            if not res.ok:
+                print(f"        {res.raw}", file=sys.stderr)
+                print(f"        {clawbot_push.HINT_REFRESH}", file=sys.stderr)
+        else:
+            if not push_ready:
+                print("[error] 未配置 PUSHPLUS_TOKEN", file=sys.stderr)
+                continue
+            res = pushplus.send(
+                token=config.pushplus_token,
+                title=doc.title,
+                content=doc.markdown,
+                template=args.template,
+                topic=config.pushplus_topic,
+            )
+            print(f"[{'ok' if res.ok else 'error'}] PushPlus：{res.message}")
+            if not res.ok:
+                print(f"        {res.raw}", file=sys.stderr)
+        succeeded = succeeded or res.ok
+
+    return succeeded
 
 
 def _dark_enabled(config: Config, china, us) -> bool:
