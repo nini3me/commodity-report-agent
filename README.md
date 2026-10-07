@@ -43,7 +43,35 @@ git push -u origin main
 
 建议设为 **Public**：公开仓库的 Actions 完全免费且不限时长。
 
-### 2. 申请 PushPlus token
+### 2. 选择推送通道
+
+两条通道，配了哪条走哪条；**两条都配时优先 ClawBot**。
+
+#### 通道 A：ClawBot（微信助理）— 推荐
+
+**送达形式是普通聊天消息**，直接进微信会话列表，和好友消息同级，**不会落在「订阅号」里**。
+
+需要三项凭据，都从本机 WorkBuddy 里取（扫码绑定后可读到）：
+
+| 取值 | 位置 |
+|---|---|
+| `CLAWBOT_BOT_TOKEN` | `~/.workbuddy/settings.json` → `claw.users.<uid>.channels.weixinClawBot.botToken` |
+| `CLAWBOT_TO_USER` | 同上的 `userId`（形如 `o9cq80…@im.wechat`） |
+| `CLAWBOT_CONTEXT_TOKEN` | `~/.workbuddy/claw-state/weixin/<accountId>.context_token.json` 里的 `context_token` |
+
+⚠️ **这是「回复型协议」，不是广播接口**：`CONTEXT_TOKEN` 只能由「你给 bot 发过一条消息」产生。
+- 获取方式：微信里给「微信助理」发一条消息，然后跑
+  `python3 ~/.workbuddy/skills/workbuddy-claw-wechat-send/scripts/send_wx.py --acquire`
+  （**先挂起轮询、再发消息**，顺序反了会抓不到，因为本机客户端会抢先消费消息）
+- 有效期：实测静置 ≥12 天仍有效；每天都用则通常一直有效
+- 若某天失败并提示 `ret=-2 prepare failed` → token 过期了，按上面重新获取并更新 Secret
+
+> 该通道是**云端可用**的：发送只依赖 botToken + contextToken + userId，无服务端会话绑定，
+> 因此电脑关机也照常送达（已实测：海外节点可直连 `ilinkai.weixin.qq.com`）。
+
+#### 通道 B：PushPlus — 兜底
+
+走微信公众号服务号，消息会落在**订阅号**里。
 
 1. 打开 <https://www.pushplus.plus>，微信扫码登录
 2. 完成**实名认证**（未实名无法调用发送接口，会返回 905）
@@ -55,10 +83,17 @@ git push -u origin main
 
 | Name | 必填 | 说明 |
 |---|---|---|
-| `PUSHPLUS_TOKEN` | ✅ | 你的 token，报告发给自己 |
-| `PUSHPLUS_TOPIC` | ⭕ | 群组编码，配了以后自己 + 群组内好友都会收到 |
+| `CLAWBOT_BOT_TOKEN` | 通道 A ✅ | 微信助理 botToken |
+| `CLAWBOT_CONTEXT_TOKEN` | 通道 A ✅ | 会话 token，会过期，需定期刷新 |
+| `CLAWBOT_TO_USER` | 通道 A ✅ | 收件人 userId |
+| `PUSHPLUS_TOKEN` | 通道 B ✅ | PushPlus token，报告发给自己 |
+| `PUSHPLUS_TOPIC` | 通道 B ⭕ | 群组编码，配了以后自己 + 群组内好友都会收到 |
 
-> **要发给指定好友**：PushPlus 后台 →「一对多推送」→ 新建群组 → 拿群组编码 → 把二维码发给好友扫码订阅 → 把编码填进 `PUSHPLUS_TOPIC`。
+只想用其中一条通道时，只配那一条的 Secret 即可（`--channel auto` 会自动选择）。
+
+> **要发给指定好友（多人）**：目前只有 PushPlus 支持——后台「一对多推送」→ 新建群组 →
+> 把二维码发给好友扫码订阅 → 编码填进 `PUSHPLUS_TOPIC`。ClawBot 是**个人 1:1 助手**，
+> 协议里没有群聊能力，无法多人广播。
 
 ### 4. 试跑
 
