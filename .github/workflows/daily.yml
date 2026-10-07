@@ -16,12 +16,15 @@ concurrency:
 
 jobs:
   report:
-    runs-on: ubuntu-latest
+    # 固定 24.04，不用 ubuntu-latest：
+    # 官方公告 2026-10-19 起 ubuntu-latest 数周内滚动迁移到 Ubuntu 26.04，
+    # 每天只跑一次的任务没必要陪跑迁移期的不确定性。
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -37,7 +40,7 @@ jobs:
 
       - name: 上传日报存档
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: daily-report-${{ github.run_number }}
           path: output/
