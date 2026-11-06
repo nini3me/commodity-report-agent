@@ -1,55 +1,55 @@
 {
   "domestic_last": {
     "ag": {
-      "date": "2026-11-04",
-      "settle": 12029.0
+      "date": "2026-11-05",
+      "settle": 12629.0
     },
     "au": {
-      "date": "2026-11-04",
-      "settle": 852.8
+      "date": "2026-11-05",
+      "settle": 879.26
     },
     "pr": {
-      "date": "2026-11-04",
-      "settle": 8168.0
+      "date": "2026-11-05",
+      "settle": 7680.0
     },
     "sc": {
-      "date": "2026-11-04",
-      "settle": 676.2
+      "date": "2026-11-05",
+      "settle": 638.4
     }
   },
   "last_push": {
-    "date": "2026-11-05",
+    "date": "2026-11-06",
     "ok": true
   },
   "main_contracts": {
     "ag": {
       "contract": "ag2702",
       "full_name": "白银2702",
-      "open_interest": 233219.0,
-      "price": 12743.0,
-      "volume": 532651.0
+      "open_interest": 235765.0,
+      "price": 12402.0,
+      "volume": 611260.0
     },
     "au": {
       "contract": "au2612",
       "full_name": "黄金2612",
-      "open_interest": 152011.0,
-      "price": 887.54,
-      "volume": 339955.0
+      "open_interest": 149549.0,
+      "price": 869.86,
+      "volume": 346570.0
     },
     "pr": {
       "contract": "pr2701",
       "full_name": "瓶片2701",
-      "open_interest": 35187.0,
-      "price": 7502.0,
-      "volume": 52134.0
+      "open_interest": 37032.0,
+      "price": 7642.0,
+      "volume": 70527.0
     },
     "sc": {
-      "contract": "sc2612",
-      "full_name": "上海原油2612",
-      "open_interest": 21935.0,
-      "price": 624.3,
-      "volume": 217165.0
+      "contract": "sc2701",
+      "full_name": "上海原油2701",
+      "open_interest": 21464.0,
+      "price": 639.8,
+      "volume": 57386.0
     }
   },
-  "updated_at": "2026-11-05T07:03:58+00:00"
+  "updated_at": "2026-11-06T07:04:21+00:00"
 }
